@@ -11,12 +11,15 @@ import QuestionMarkOutlinedIcon from '@mui/icons-material/QuestionMarkOutlined';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
 import { useNavigate } from 'react-router-dom';
 import { MakeApicallWithoutToken } from '../../../api/MakeApiCall';
+import { useDispatch, useSelector } from 'react-redux';
+import { setProjectDetails } from '../../../store/projectSlice/projectSlice';
 
 const Projects = () => {
-    const [loading, setLaoding] = useState(false);
+    const [loading, setLoading] = useState(false);
     const [anchorEl, setAnchorEl] = useState(null);
     const [selectedRow, setSelectedRow] = useState(null);
     const navigate = useNavigate();
+    // const r_data = useSelector(state => console.log('Store State', state));
     const [data, setData] = useState([
         {
             id: '1',
@@ -99,43 +102,55 @@ const Projects = () => {
             person: 'XXXXXXXX',
         },
     ]);
-    const getAllProjectDetails = async () => {
+    const getAllProjects = async () => {
         try {
-            const response = await MakeApicallWithoutToken(`project/${1}`, 'GET');
+            setLoading(true);
+            const response = await MakeApicallWithoutToken(`project/all`, 'GET');
+            // console.log("All Projects", response);
             if (response?.success) {
-                const apiData = {
-                    ...response.data,
+                const apiData = response?.data.map(data => ({
+                    ...data,
+                    city: data.address?.city,
+                    state: data.address?.state,
+                    country: data.address?.country,
                     person: 'Mr. XXXXXX XXXXXXXXX',
                     phone: '+91-XXXXXXXXXX',
-                }
+                }));
                 // console.log('ApiData', apiData);
-                setData([apiData]);
+                setData(apiData);
             }
         } catch (err) {
             console.error('Error making api call', err);
+        } finally {
+            setLoading(false);
         }
     }
+    const dispatch = useDispatch();
     const handleClickEvent = (params) => {
-        console.log(params, "params");
+        // console.log(params, "params");
         if (params.field == "projectName") {
             setSelectedRow(params.row);
-            navigate('/projects/addproject', {state: {
-                isNavigated: true,
-                projectId: params.row.id
-            }})
+            navigate('/projects/addproject', {
+                state: {
+                    isNavigated: true,
+                    projectId: params.row.id
+                }
+            })
+            // navigate('/projects/addproject');
+            // dispatch(setProjectDetails(params.row.id));        
         }
     }
     useGridApiEventHandler("cellClick", handleClickEvent);
     const allButtons = [
-        { name: 'new', tootipTitle: 'Add Project', style: { width: 65, backgroundColor: '#f7535b' }, icon: <AddOutlinedIcon fontSize='small' />, },
-        { name: 'more', tootipTitle: 'More', style: { backgroundColor: '#f5f5f5' }, icon: <MoreVertOutlinedIcon style={{ fill: 'black' }} />, },
-        { name: 'question', tootipTitle: 'Question', style: { backgroundColor: '#fc8f31' }, icon: <QuestionMarkOutlinedIcon style={{ fill: 'white' }} />, },
+        { name: 'new', tooltipTitle: 'Add Project', style: { width: 65, backgroundColor: '#f7535b' }, icon: <AddOutlinedIcon fontSize='small' />, },
+        { name: 'more', tooltipTitle: 'More', style: { backgroundColor: '#f5f5f5' }, icon: <MoreVertOutlinedIcon style={{ fill: 'black' }} />, },
+        { name: 'question', tooltipTitle: 'Question', style: { backgroundColor: '#fc8f31' }, icon: <QuestionMarkOutlinedIcon style={{ fill: 'white' }} />, },
     ]
     const handleClickMoreButton = (e) => {
         setAnchorEl(e.currentTarget);
     }
     useEffect(() => {
-        getAllProjectDetails();
+        getAllProjects();
     }, [])
     return (
         <div className='h-screen w-full'>
@@ -150,7 +165,7 @@ const Projects = () => {
                     </div>
                     <div className='flex justify-between items-center gap-3'>
                         {allButtons.map((btn, index) => (
-                            <Tooltip title={btn.tootipTitle} key={index}>
+                            <Tooltip title={btn.tooltipTitle} key={index}>
                                 <Button
                                     type='default'
                                     style={btn.style}

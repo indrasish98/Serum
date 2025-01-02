@@ -7,16 +7,17 @@ import PhoneAndroidIcon from '@mui/icons-material/PhoneAndroid';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AlertBar from '../../snackbar/AlertBar';
+import { MakeApicallWithoutToken } from '../../../../api/MakeApiCall';
 
-const SiteEmployeeTab = () => {
+const SiteEmployeeTab = ({ projectId }) => {
     const [allDetails, setAllDetails] = useState({
         salutation: '',
-        firstname: '',
-        lastname: '',
+        firstName: '',
+        lastName: '',
         email: '',
-        workphone: '',
+        workPhone: '',
         mobile: '',
-        //state: ''
+        active: false
     });
     const [alert, setAlert] = useState({
         open: false,
@@ -29,7 +30,9 @@ const SiteEmployeeTab = () => {
     }
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [loading, setLoading] = useState(false);
     const [toggle, setToggle] = useState(false);
+    const [selectedRows, setSelectedRows] = useState([]);
     const handleToggleState = (checked, record) => {
         setData(data.map(item => (
             item.key == record.key ?
@@ -65,7 +68,7 @@ const SiteEmployeeTab = () => {
         },
         {
             title: 'First Name',
-            dataIndex: 'firstname',
+            dataIndex: 'firstName',
             type: 'text',
             width: 160,
             align: "center",
@@ -73,7 +76,7 @@ const SiteEmployeeTab = () => {
         },
         {
             title: 'Last Name',
-            dataIndex: 'lastname',
+            dataIndex: 'lastName',
             type: 'text',
             width: 160,
             align: "center",
@@ -89,7 +92,7 @@ const SiteEmployeeTab = () => {
         },
         {
             title: 'Work Phone',
-            dataIndex: 'workphone',
+            dataIndex: 'workPhone',
             type: 'number',
             width: 160,
             align: "center",
@@ -105,7 +108,7 @@ const SiteEmployeeTab = () => {
         },
         {
             title: 'Action',
-            dataIndex: 'state',
+            dataIndex: 'active',
             type: 'dropdown',
             width: 160,
             align: "center",
@@ -114,10 +117,10 @@ const SiteEmployeeTab = () => {
                 // console.log("Record", record);
                 let color = '';
                 switch (value) {
-                    case 'Active':
+                    case true:
                         color = '#41d51f'
                         break;
-                    case 'Inactive':
+                    case false:
                         color = '#f73a27'
                         break;
                     default:
@@ -128,7 +131,7 @@ const SiteEmployeeTab = () => {
                     <div className='flex justify-center items-center gap-2'>
                         <Switch size='small' checked={value == 'Active' ? true : false} onChange={(checked) => handleToggleState(checked, record)} />
                         <div className='p-1 rounded-md text-xs' style={{ backgroundColor: color }}>
-                            {record.state}
+                            {value ? 'Active' : 'Inactive'}
                         </div>
                     </div>
                 )
@@ -139,15 +142,42 @@ const SiteEmployeeTab = () => {
         {
             key: 1,
             salutation: 'Mr.',
-            firstname: "XYZ",
-            lastname: "XYZ",
+            firstName: "XYZ",
+            lastName: "XYZ",
             email: 'xyz@xyz.com',
-            workphone: '91-XXXXXXXXXXX',
+            workPhone: '91-XXXXXXXXXXX',
             mobile: '91-XXXXXXXXXX',
-            state: 'Inactive'
-            // communicationchannels: 'XYZ'
+            active: 'Inactive'
+        },
+        {
+            key: 2,
+            salutation: 'Mr.',
+            firstName: "XYZ",
+            lastName: "XYZ",
+            email: 'xyz@xyz.com',
+            workPhone: '91-XXXXXXXXXXX',
+            mobile: '91-XXXXXXXXXX',
+            active: 'Inactive'
         }
     ]);
+    const getAllEmployeeDetails = async () => {
+        try {
+            setLoading(true);
+            const response = await MakeApicallWithoutToken(`employee/${projectId}`, 'GET');
+            // console.log('Response', response, projectId);
+            if (response?.success) {
+                setData(response?.data.map((data, index) => ({
+                    ...data,
+                    key: index
+                })));
+            }
+        }
+        catch (err) {
+            console.error('Error while making api call', err);
+        } finally {
+            setLoading(false);
+        }
+    }
     const renderFieldBox = (field) => {
         switch (field.type) {
             case "text":
@@ -171,19 +201,12 @@ const SiteEmployeeTab = () => {
                         onChange={(e) => handleChange(null, e, field.dataIndex)}
                     />
                 );
-                // case "radio":
-                return (
-                    <Radio.Group name='communicationChannels' onChange={''} value={allDetails.communicationChannels}>
-                        <Radio value='Email'>Email</Radio>
-                        <Radio value='SMS'>SMS</Radio>
-                    </Radio.Group>
-                );
             case "dropdown":
                 return (
                     <Select
-                        showSearch
-                        style={{ width: 300 }}
+                        // showSearch
                         placeholder={`Select ${field.title}`}
+                        style={{ width: 300 }}
                         options={field.title == 'Salutation' ? [
                             { value: 'Mr.', label: 'Mr.' },
                             { value: 'Mrs.', label: 'Mrs.' },
@@ -215,23 +238,47 @@ const SiteEmployeeTab = () => {
             </Tooltip>
         )
     }
-    const handleAddEmployee = () => {
+    const handleSubmitEmployee = async () => {
         // console.log("Details", allDetails)
-        setData([...data, allDetails]);
-        setIsOpen(false);
-        setAlert({
-            ...alert,
-            open: true,
-            message: `Employee Added Successfully`,
-            severity: 'success'
-        })
+        try {
+            const payload = {
+                ...allDetails,
+                active: allDetails.active == 'Active' ? true : false,
+                mobile: allDetails.mobile.toString(),
+                workPhone: allDetails.workPhone.toString(),
+            }
+            delete payload['key'];
+            delete payload['id'];
+            delete payload['projectId'];
+            // console.log("Payload", payload, selectedRows[0].id);
+            const endPoint = `employee/${isEditing ? 'update' : 'add'}/${isEditing ? selectedRows[0].id : projectId}`
+            const response = await MakeApicallWithoutToken(endPoint, isEditing ? 'PUT' : 'POST', payload);
+            if (response?.success) {
+                getAllEmployeeDetails();
+                handleCloseModal();
+                setAlert({
+                    ...alert,
+                    open: true,
+                    message: `Employee Added Successfully`,
+                    severity: 'success'
+                })
+            }
+        } catch (err) {
+            console.error('Error while making api call', err);
+            setAlert({
+                ...alert,
+                open: true,
+                message: `Failed to add employee, Please try again`,
+                severity: 'error'
+            })
+        }
     }
     const validateMessages = {
         required: "${label} is required!"
-    };
+    }
     const onFinish = (values) => {
         // console.log('Finished', values);
-        handleAddEmployee();
+        handleSubmitEmployee();
     }
     const onFinishFailed = (error) => {
         // console.log('Failed', error);
@@ -247,8 +294,73 @@ const SiteEmployeeTab = () => {
             return;
         }
         setAlert({ ...alert, open: false });
-    };
-
+    }
+    const rowSelection = {
+        onChange: (selectedRowKeys, selectedRows) => {
+            console.log(`selectedRowKeys: ${selectedRowKeys}`, 'selectedRows: ', selectedRows);
+            setSelectedRows(selectedRows);
+        }
+    }
+    const handleEdit = () => {
+        setAllDetails(selectedRows[0]);
+        setIsEditing(true);
+        setIsOpen(true);
+    }
+    const handleDeleteEmploye = async () => {
+        for (let i = 0; i < selectedRows.length; i++) {
+            try {
+                const response = await MakeApicallWithoutToken(`employee/delete/${selectedRows[i].id}`, 'DELETE');
+                if (response?.success) {
+                    setAlert({
+                        ...alert,
+                        open: true,
+                        message: `${selectedRows.length} employee/s deleted successfully`,
+                        severity: 'success'
+                    })
+                    console.log('Deleted', selectedRows[i].firstName);
+                }
+            }
+            catch (err) {
+                console.error('Error while making api call', err);
+                setAlert({
+                    ...alert,
+                    open: true,
+                    message: `Failed to delete ${selectedRows.length} employee/s, Please try again`,
+                    severity: 'error'
+                })
+            }finally{
+                getAllEmployeeDetails();
+            }
+        }
+    }
+    const setInitalValuesOnForm = (field, selected) => {
+        switch (field.dataIndex) {
+            case 'salutation':
+                return selected.salutation;
+            case 'firstName':
+                return selected.firstName;
+            case 'lastName':
+                return selected.lastName;
+            case 'email':
+                return selected.email;
+            case 'workPhone':
+                return selected.workPhone;
+            case 'mobile':
+                return selected.mobile;
+            case 'active':
+                return selected.active ? 'Active' : 'Inactive';
+            default:
+                return null;
+        }
+    }
+    const handleCloseModal = () => {
+        setIsEditing(false);
+        setIsOpen(false);
+        setSelectedRows([]);
+    }
+    useEffect(() => {
+        getAllEmployeeDetails();
+    }, []);
     return (
         <>
             <AlertBar
@@ -258,13 +370,24 @@ const SiteEmployeeTab = () => {
                 handleClose={handleCloseAlertBar}
                 anchorOrigin={{ vertical: "top", horizontal: "center" }}
             />
-            <Box sx={{ padding: 2, boxShadow: 3, width: '100%' }}>
-                <Table footer={() => <TableFooter />} columns={column} dataSource={data} />
+            <Box sx={{ padding: 2, boxShadow: 3, width: '100%' }} className='flex flex-col gap-4'>
+                {selectedRows.length > 0 && <div className='flex gap-2'>
+                    {selectedRows.length < 2 && <Button type='primary' onClick={handleEdit}>Edit</Button>}
+                    <Button type='primary' style={{ backgroundColor: '#f7535b' }} onClick={handleDeleteEmploye}>Delete</Button>
+                </div>}
+                <Table
+                    loading={loading}
+                    footer={() => <TableFooter />}
+                    columns={column}
+                    dataSource={data}
+                    bordered
+                    rowSelection={{ ...rowSelection }}
+                />
             </Box>
             {isOpen && <Modal
                 open={isOpen}
-                onCancel={() => setIsOpen(false)}
-                title='Add Employee'
+                onCancel={handleCloseModal}
+                title={isEditing ? 'Edit Employee Detail' : 'Add Employee Detail'}
                 footer={[
                     // <Button key="back" onClick={() => setIsOpen(false)}>
                     //     Cancel
@@ -274,7 +397,7 @@ const SiteEmployeeTab = () => {
                     //     // htmlType='submit'
                     //     style={{ backgroundColor: '#f7535b' }}
                     // // key="submit"
-                    // // onClick={handleAddEmployee}                        
+                    // // onClick={handleSubmitEmployee}                        
                     // >
                     //     Add
                     // </Button>,
@@ -310,6 +433,7 @@ const SiteEmployeeTab = () => {
                                 rules={[
                                     { required: true, message: `${field.title} is required` },
                                 ]}
+                                initialValue={isEditing ? setInitalValuesOnForm(field, selectedRows[0]) : ''}
                             >
                                 {renderFieldBox(field)}
                             </Form.Item>
@@ -317,10 +441,10 @@ const SiteEmployeeTab = () => {
                     </div>
                     <div className='flex gap-2 justify-end items-end'>
                         <Form.Item>
-                            <Button key="back" onClick={() => setIsOpen(false)}>Cancel</Button>
+                            <Button key="back" onClick={handleCloseModal}>Cancel</Button>
                         </Form.Item>
                         <Form.Item>
-                            <Button type="primary" htmlType="submit">Add</Button>
+                            <Button type="primary" htmlType="submit">{isEditing ? 'Save' : 'Add'}</Button>
                         </Form.Item>
                     </div>
                 </Form>

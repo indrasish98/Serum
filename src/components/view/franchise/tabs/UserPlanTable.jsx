@@ -6,9 +6,11 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AlertBar from '../../snackbar/AlertBar';
 import UndoIcon from '@mui/icons-material/Undo';
+import { MakeApicallWithoutToken } from '../../../../api/MakeApiCall';
 
 const UserPlanTable = () => {
     const [isOpen, setIsOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [editingField, setEditingField] = useState({});
@@ -26,8 +28,8 @@ const UserPlanTable = () => {
     const column = [
         {
             title: "SL.No",
-            dataIndex: "key",
-            key: "key",
+            dataIndex: "sl",
+            key: "sl",
             width: 20,
             align: "center",
             render: (text, record, index) => index + 1,
@@ -53,7 +55,7 @@ const UserPlanTable = () => {
             align: "center",
             render: (record) => (
                 <>
-                    {/* {console.log(record)} */}
+                    {/* {console.log('record', record)} */}
                     <div className='flex gap-2 justify-center items-center'>
                         <Tooltip title='Edit'>
                             <EditIcon style={{ fontSize: 20, fill: 'green' }} className='cursor-pointer'
@@ -77,9 +79,23 @@ const UserPlanTable = () => {
     ];
     const [dataSource, setDataSource] = useState();
     const location = useLocation();
-    const data = location?.state?.data;
-    const name = location?.state?.name;
+    const { data, name, planId, projectId } = location?.state;
+    // console.log("##Id", planId);
 
+    const getAllPlanAccordingId = async () => {
+        try {
+            setLoading(true);
+            const response = await MakeApicallWithoutToken(`payment-plan/${planId}`, 'GET');
+            console.log("Response", response);
+            if (response?.success) {
+                setDataSource(response.data);
+            }
+        } catch (err) {
+            console.error('Error while making api call', err);
+        } finally {
+            setLoading(false);
+        }
+    }
     const handleEdit = (record) => {
         // console.log("Record", record)
         setEditingField(record);
@@ -96,16 +112,29 @@ const UserPlanTable = () => {
         setEditingField(record);
         setOpenDeleteModal(true);
     }
-    const handleDeleteConfirmation = () => {
-        setDataSource(dataSource.filter(data => data.key != editingField.key));
-        setOpenDeleteModal(false);
-        setEditingField(null);
-        setAlert({
-            ...alert,
-            open: true,
-            message: 'Plan Deleted Successfully',
-            severity: 'success'
-        })
+    const handleDeleteConfirmation = async () => {
+        try {
+            const response = await MakeApicallWithoutToken(`payment-plan/delete/${editingField.id}`, 'DELETE');
+            if (response?.success) {
+                setOpenDeleteModal(false);
+                setEditingField(null);
+                getAllPlanAccordingId();
+                setAlert({
+                    ...alert,
+                    open: true,
+                    message: 'Plan Deleted Successfully',
+                    severity: 'success'
+                })
+            }
+        } catch (err) {
+            console.error('Error making api call', err);
+            setAlert({
+                ...alert,
+                open: true,
+                message: 'Failed to delete',
+                severity: 'error'
+            })
+        }
     }
     const handleChange = (e, name) => {
         // console.log("@@", allDetails)
@@ -125,25 +154,29 @@ const UserPlanTable = () => {
             charge: ''
         });
     };
-    const handleSubmit = () => {
-        isEditing ?
-            setDataSource(dataSource.map(data => (
-                data.key == editingField.key ?
-                    {
-                        ...data,
-                        stage: allDetails.stage,
-                        charge: allDetails.charge,
-                        key: dataSource.length + 1
-                    }
-                    : data
-            ))) : setDataSource([...dataSource, { ...allDetails, key: dataSource.length + 1 }])
+    const handleSubmit = async () => {
+        try {
+            const endpoint = isEditing ? `payment-plan/update/${editingField.id}` : `payment-plan/add/${planId}?projectId=${projectId}`
+            const response = await MakeApicallWithoutToken(endpoint, isEditing ? 'PUT' : 'POST', allDetails);
+            if (response?.success) {
+                setAlert({
+                    ...alert,
+                    open: true,
+                    message: `Plan ${isEditing ? 'edited' : 'added'} successfully`,
+                    severity: 'success'
+                })
+                getAllPlanAccordingId();
+            }
+        } catch (err) {
+            console.error('Error while making api call', err);
+            setAlert({
+                ...alert,
+                open: true,
+                message: `Failed to ${isEditing ? 'edit' : 'add'} plan, please try again`,
+                severity: 'error'
+            })
+        }
         handleCloseModal();
-        setAlert({
-            ...alert,
-            open: true,
-            message: `Plan Edited Successfully`,
-            severity: 'success'
-        })
     }
     const validateMessages = {
         required: "${label} is required!"
@@ -169,7 +202,7 @@ const UserPlanTable = () => {
         setAlert({ ...alert, open: false });
     };
     useEffect(() => {
-        setDataSource(data);
+        getAllPlanAccordingId();
     }, []);
     // useEffect(() => {
     //     console.log("Datasource", dataSource);
@@ -199,6 +232,7 @@ const UserPlanTable = () => {
                 <Box sx={{ boxShadow: 3, width: '100%' }}>
                     <Table
                         className='w-full'
+                        loading={loading}
                         columns={column}
                         dataSource={dataSource}
                         rowKey={record => record.id}
@@ -209,7 +243,9 @@ const UserPlanTable = () => {
             <div className='flex justify-center'>
                 <Button
                     type='primary'
-                    onClick={() => navigate('/projects/addproject', { state: { tab: '7' } })}
+                    onClick={() => navigate('/projects/addproject', {
+                        state: { tab: '7', projectId: projectId, isNavigated: true }
+                    })}
                 >
                     <UndoIcon fontSize='small' />Go Back
                 </Button>
@@ -280,7 +316,7 @@ const UserPlanTable = () => {
                             <Button key="back" onClick={handleCloseModal}>Cancel</Button>
                         </Form.Item>
                         <Form.Item>
-                            <Button type="primary" htmlType="submit">Add</Button>
+                            <Button type="primary" htmlType="submit">{isEditing ? 'Save' : 'Add'}</Button>
                         </Form.Item>
                     </div>
                 </Form>

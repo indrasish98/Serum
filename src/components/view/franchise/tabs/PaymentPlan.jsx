@@ -7,9 +7,10 @@ import Box from '@mui/material/Box';
 import { useForm } from 'antd/es/form/Form';
 import AlertBar from '../../snackbar/AlertBar';
 import moment from "moment";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { MakeApicallWithoutToken } from '../../../../api/MakeApiCall';
 
-const PaymentPlan = () => {
+const PaymentPlan = ({ projectId }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -26,10 +27,11 @@ const PaymentPlan = () => {
         message: "",
         severity: "",
     });
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
     const [form] = useForm();
-
-
+    // const location = useLocation();
+    // const projectId = location?.state?.projectId;
 
 
     ///////// Drastic Changes Sudden Occur => From Here
@@ -58,25 +60,48 @@ const PaymentPlan = () => {
     /////////////// To Here
 
 
-
-    const handleNavigateRoute = (params) => {
-        navigate('/projects/addproject/userplantable', {
+    const getAllPlansAccordingProjectId = async () => {
+        try {
+            setLoading(true);
+            // console.log("##ID", projectId);
+            const response = await MakeApicallWithoutToken(`plan-name/${projectId}`, 'GET');
+            if (response?.success) {
+                // console.log("Plans", response)
+                setDataSource(response.data.map(data => ({
+                    ...data,
+                    createdOn: data.createdOn ?? '2024-12-27 12:00:42',
+                    createdBy: data.createdBy ?? '--',
+                    data: null
+                })))
+            }
+        }
+        catch (err) {
+            console.error('Error making api call', err);
+        } finally {
+            setLoading(false);
+        }
+    }
+    const handleNavigateRoute = (record) => {
+        // console.log("##id", record);
+        navigate('userplantable', {
             state: {
-                name: params.plan,
-                data: exDataSource
+                name: record.planName,
+                // data: exDataSource,
+                planId: record.id,
+                projectId: projectId
             }
         })
     }
     const [dataSource, setDataSource] = useState([
         {
-            key: 1,
-            plan: 'Plan A',
-            // stage: 'Booking',
-            // charge: '10% BSP',
-            // configured: true,
-            createdOn: '2024-12-18 10:39:45',
-            createdBy: '2024-12-18 10:39:45',
-            data: exDataSource,
+            // key: 1,
+            // planName: 'Plan A',
+            // // stage: 'Booking',
+            // // charge: '10% BSP',
+            // // configured: true,
+            // createdOn: '2024-12-18 10:39:45',
+            // createdBy: '--',
+            // data: exDataSource,
         },
         // {
         //     key: 2,
@@ -96,38 +121,29 @@ const PaymentPlan = () => {
         //     createdOn: '2024-12-18 10:39:45',
         //     createdBy: '2024-12-18 10:39:45',
         // },
-        // {
-        //     key: 4,
-        //     plan: 'Payment Plan for D',
-        //     stage: 'Casting of Basement roof slab',
-        //     charge: '7.5% BSP + 10% PLC + 50% EDC',
-        //     configured: true,
-        //     createdOn: '2024-12-18 10:39:45',
-        //     createdBy: '2024-12-18 10:39:45',
-        // },
     ]);
     const columns = [
         {
-            title: "Id",
-            dataIndex: "key",
-            key: "key",
+            title: "Plan Id",
+            dataIndex: "id",
+            key: "id",
             width: 20,
             align: "center",
             render: (text, record, index) => index + 1,
         },
         {
             title: "Payment Plan",
-            dataIndex: "plan",
-            key: "plan",
+            dataIndex: "planName",
+            key: "planName",
             width: 180,
             align: "center",
-            render: (_, params) => {
+            render: (text, record) => {
                 // console.log("Params", params)
                 return (
                     <p className="cursor-pointer" style={{ color: "#1890ff" }}
-                        onClick={() => handleNavigateRoute(params)}
+                        onClick={() => handleNavigateRoute(record)}
                     >
-                        {params.plan}
+                        {text}
                     </p>
                 )
             }
@@ -167,7 +183,6 @@ const PaymentPlan = () => {
             align: "center",
             render: (record) => (
                 <>
-                    {/* {console.log(record)} */}
                     <Tooltip title='Configure'>
                         <SettingsIcon className='cursor-pointer' fontSize='small'
                             onClick={() => handleConfigure(record)} style={{ fill: 'blue' }}
@@ -204,15 +219,19 @@ const PaymentPlan = () => {
             severity: 'success'
         })
     }
+    // useEffect(() => {
+    //     console.log("Editing Field", editingField);
+    // }, [editingField]);
     const handleConfigure = (record) => {
-        setIsOpen(true);
         // setIsEditing(true);
         setEditingField(record);
+        // console.log("Record", record);
         setAllDetails({
             // plan: '',
             stage: '',
             charge: ''
-        })
+        });
+        setIsOpen(true);
         // console.log("Record Configure", record, allDetails)
     }
     const handleChange = (e, name) => {
@@ -222,18 +241,32 @@ const PaymentPlan = () => {
             [name]: e.target.value
         }));
     }
-    const handleSubmit = () => {
-        dataSource.map(data => (
-            data.key == editingField.key &&
-            setExDataSource([...exDataSource, { ...allDetails, key: exDataSource.length + 1 }])
-        ));
-        handleCloseModal();
-        setAlert({
-            ...alert,
-            open: true,
-            message: 'Plan Edited Successfully',
-            severity: 'success'
-        })
+    const handleSubmit = async () => {
+        // dataSource.map(data => (
+        //     data.key == editingField.key &&
+        //     setExDataSource([...exDataSource, { ...allDetails, key: exDataSource.length + 1 }])
+        // ));
+        try {
+            const response = await MakeApicallWithoutToken(`payment-plan/add/${editingField?.id}?projectId=${projectId}`, 'POST', allDetails);
+            // console.log('Response', response);
+            if (response?.success) {
+                handleCloseModal();
+                setAlert({
+                    ...alert,
+                    open: true,
+                    message: 'Plan Edited Successfully',
+                    severity: 'success'
+                })
+            }
+        } catch (err) {
+            console.error("Error while making api call", err);
+            setAlert({
+                ...alert,
+                open: true,
+                message: 'Failed to configure new Plan, Please try again',
+                severity: 'error'
+            })
+        }
     }
     const handleCloseAlertBar = (event, reason) => {
         if (reason === "clickaway") {
@@ -248,15 +281,31 @@ const PaymentPlan = () => {
             data: exDataSource
         });
     }
-    const handleSubmitAddPlan = () => {
-        setDataSource([...dataSource, allDetails]);
+    const handleSubmitAddPlan = async () => {
+        // setDataSource([...dataSource, allDetails]);
+        try {
+            // console.log("Payload", allDetails.plan)
+            const response = await MakeApicallWithoutToken(`plan-name/create/${projectId}`, 'POST', { planName: allDetails.plan });
+            if (response?.success) {
+                setAlert({
+                    ...alert,
+                    open: true,
+                    message: 'Plan added successfully',
+                    severity: 'success'
+                });
+                getAllPlansAccordingProjectId();
+            }
+        }
+        catch (err) {
+            console.error('Error making api call', err);
+            setAlert({
+                ...alert,
+                open: true,
+                message: 'Failed to add plan, Please try again',
+                severity: 'error'
+            });
+        }
         handleCloseModal();
-        setAlert({
-            ...alert,
-            open: true,
-            message: 'Plan Added Successfully',
-            severity: 'success'
-        })
     }
     const handleCloseModal = () => {
         setIsOpen(false);
@@ -287,9 +336,12 @@ const PaymentPlan = () => {
             severity: 'error'
         })
     }
+    useEffect(() => {
+        getAllPlansAccordingProjectId();
+    }, []);
     // useEffect(() => {
-    //     console.log('Expandable Table Data', dataSource);
-    // }, [dataSource])
+    //     console.log('All Data', allDetails);
+    // }, [allDetails]);
     return (
         <div className='w-full flex flex-col gap-2 justify-center'>
             <AlertBar
@@ -309,6 +361,7 @@ const PaymentPlan = () => {
             <Box sx={{ boxShadow: 3, width: '100%' }} className='flex justify-center'>
                 <Table
                     className='w-full'
+                    loading={loading}
                     columns={columns}
                     // expandable={{
                     //     expandedRowRender: (record) => (
@@ -326,14 +379,14 @@ const PaymentPlan = () => {
                     //         </Button>
                     //     </Tooltip>
                     // }
-                    rowKey={(record => record.id)}
+                    rowKey={record => record.id}
                     bordered='true'
                 />
             </Box>
             {isOpen && <Modal
                 open={isOpen}
                 onCancel={handleCloseModal}
-                title={`Configure New Plan For ${editingField.plan}`}
+                title={`Configure New Plan For ${editingField.planName}`}
                 footer={null}
             >
                 <Form
@@ -379,7 +432,6 @@ const PaymentPlan = () => {
                         ]}
                         initialValue={allDetails.charge}
                     >
-                        {/* {console.log("EF", allDetails, editingField)} */}
                         {isEditing ? <Input
                             placeholder='Enter Details'
                             onChange={(e) => handleChange(e, 'charge')}
@@ -445,7 +497,7 @@ const PaymentPlan = () => {
                     </div>
                 </Form>
             </Modal>}
-            {openDeleteModal && <Modal
+            {/* {openDeleteModal && <Modal
                 open={openDeleteModal}
                 onCancel={() => setOpenDeleteModal(false)}
                 title='Are you sure you want to delete this plan?'
@@ -464,7 +516,7 @@ const PaymentPlan = () => {
                 ]}
             >
             </Modal>
-            }
+            } */}
         </div>
     )
 }

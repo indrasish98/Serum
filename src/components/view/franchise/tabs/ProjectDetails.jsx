@@ -46,25 +46,73 @@ const ProjectDetails = () => {
     ]);
     const getDetails = async () => {
         try {
-            const response = await MakeApicallWithoutToken(`project-detail/${1}`, 'GET');
-            console.log("Resposne", response);
+            const response = await MakeApicallWithoutToken(`project-detail/all`, 'GET');
+            // console.log("Resposne", response);
             if (response?.success) {
                 const apiData = response.data;
-                setDataSource([apiData]);
+                // console.log('ApiData', apiData);
+                setDataSource(apiData);
             }
         } catch (err) {
             console.error("Error Making Api Call", err);
         }
-    }
+    };
+    const editAndSaveDetails = async () => {
+        try {
+            const payload = {
+                ...allDetails,
+                areaDetail: allDetails.areaDetail.toString()
+            }
+            console.log("Alldetails", payload);
+            const response = await MakeApicallWithoutToken(`project-detail/update/${editingField.projectId}`, 'PUT', payload);
+            console.log("Resposne", response);
+            if (response?.success) {
+                setAlert({
+                    ...alert,
+                    open: true,
+                    message: `Details edited successfully`,
+                    severity: 'success'
+                });
+                getDetails();
+            }
+        } catch (err) {
+            console.error("Error Making Api Call", err);
+            setAlert({
+                ...alert,
+                open: true,
+                message: 'Failed to edit details, please try again  ',
+                severity: 'error'
+            })
+        }
+    };
+    const deleteDetail = async (id) => {
+        try {
+            const response = await MakeApicallWithoutToken(`project-detail/delete/${id}`, 'DELETE');
+            // console.log("Resposne", response);
+            if (response?.success) {
+                const apiData = response.data;
+                // console.log('ApiData', apiData);
+                getDetails();
+            }
+        } catch (err) {
+            console.error("Error Making Api Call", err);
+        }
+    };
     const [alert, setAlert] = useState({
         open: false,
         message: "",
         severity: "",
-    })
+    });
     const handleEdit = (record) => {
         console.log("Record Is", record)
         setEditingField(record);
-        setAllDetails(record)
+        setAllDetails({
+            room: record.room,
+            floor: record.floor,
+            areaDetail: record.areaDetail.toString(),
+            cost: record.cost,
+            unit: record.unit,
+        });
         setIsEditing(true);
     }
     const handleDelete = (record) => {
@@ -197,26 +245,28 @@ const ProjectDetails = () => {
     const handleSubmit = () => {
         // console.log('#All', editingField);
         isEditing ?
-            setDataSource(dataSource.map(data => (
-                data.projectId == editingField.projectId ?
-                    {
-                        ...data,
-                        // plan: allDetails.plan,
-                        configured: true,
-                        room: allDetails.room,
-                        floor: allDetails.floor,
-                        areaDetail: allDetails.areaDetail,
-                        unit: allDetails.unit,
-                        cost: allDetails.cost,
-                    } : data
-            ))) :
+            // setDataSource(dataSource.map(data => (
+            //     data.projectId == editingField.projectId ?
+            //         {
+            //             ...data,
+            //             // plan: allDetails.plan,
+            //             configured: true,
+            //             room: allDetails.room,
+            //             floor: allDetails.floor,
+            //             areaDetail: allDetails.areaDetail,
+            //             unit: allDetails.unit,
+            //             cost: allDetails.cost,
+            //         } : data
+            // ))) 
+            editAndSaveDetails()
+            :
             setDataSource([...dataSource, allDetails])
-        setAlert({
-            ...alert,
-            open: true,
-            message: `Details ${isEditing ? 'edited' : 'added'} successfully`,
-            severity: 'success'
-        });
+        // setAlert({
+        //     ...alert,
+        //     open: true,
+        //     message: `Details ${isEditing ? 'edited' : 'added'} successfully`,
+        //     severity: 'success'
+        // });
         handleCloseModal();
         form.resetFields();
     };
@@ -244,7 +294,7 @@ const ProjectDetails = () => {
     };
     useEffect(() => {
         calculateCost(allDetails.unit);
-        console.log('AllData', allDetails)
+        console.log('AllData', allDetails);
     }, [allDetails.areaDetail, allDetails.unit, allDetails.room]);
     useEffect(() => {
         getDetails();
@@ -465,7 +515,7 @@ const ProjectDetails = () => {
                         rules={[
                             { required: true, message: `Area is required` },
                         ]}
-                        initialValue={parseInt(editingField.area)}
+                        initialValue={editingField.areaDetail}
                     >
                         <InputNumber
                             className='flex-1'
@@ -474,7 +524,6 @@ const ProjectDetails = () => {
                             addonAfter={selectAfter}
                             placeholder='Enter Area'
                             style={{ width: 180 }}
-                            // defaultValue={parseInt(editingField.area)}
                             onChange={(e) => handleChange(e, 'areaDetail')}
                             required={true}
                         />

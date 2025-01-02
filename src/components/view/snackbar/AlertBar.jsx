@@ -12,7 +12,7 @@ const AlertBar = ({ open, message, severity, handleClose }) => {
                 sx={{ width: '100%' }}
             >
                 {message}
-            </Alert>            
+            </Alert>
         </Snackbar>
     )
 }

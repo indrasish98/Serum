@@ -41,7 +41,7 @@ const Header = () => {
                         <EventAvailableOutlinedIcon fontSize='medium' />
                         <NotificationsNoneOutlinedIcon fontSize='medium' />
                         <SettingsOutlinedIcon fontSize='medium' />
-                        <Badge count={0}>
+                        <Badge count={1}>
                             <Avatar style={{ backgroundColor: '#f56a00' }} size='xs' src="https://api.dicebear.com/7.x/miniavs/svg?seed=1" alt={<PersonIcon />} />
                         </Badge>
                         <AppsOutlinedIcon fontSize='medium' />

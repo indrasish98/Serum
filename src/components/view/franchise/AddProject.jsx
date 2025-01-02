@@ -16,6 +16,9 @@ import Amenities from './tabs/Amenities';
 import PaymentPlan from './tabs/PaymentPlan';
 import { MakeApicallWithoutToken } from '../../../api/MakeApiCall';
 import { useForm } from 'antd/es/form/Form';
+import { clearProjectDetails } from '../../../store/projectSlice/projectSlice';
+import { useDispatch, useSelector } from 'react-redux';
+
 
 const AddProject = () => {
     const [allData, setAllData] = useState({
@@ -31,7 +34,7 @@ const AddProject = () => {
     const navigate = useNavigate();
     const location = useLocation();
     let defaultActiveTab = location?.state?.tab ?? '1';
-    let showProjectDetails = location?.state?.isNavigated ?? false;
+    let isExistingProject = location?.state?.isNavigated ?? false;
     let projectId = location?.state?.projectId ?? null;
     const renderFieldBox = (field) => {
         switch (field.field_type) {
@@ -107,7 +110,7 @@ const AddProject = () => {
             const response = await MakeApicallWithoutToken(`project/${projectId}`, 'GET');
             if (response?.success) {
                 const apiData = { ...response.data };
-                // console.log("ApiData", apiData);
+                // console.log('Apidata', apiData);
                 setAllData(apiData);
                 setDataFetched(true);
             }
@@ -116,24 +119,25 @@ const AddProject = () => {
         }
     }
     const handleBack = () => {
-        navigate('/projects')
+        navigate('/projects');
+
     }
 
     useEffect(() => {
-        showProjectDetails && getProjectDetails();
-    }, [showProjectDetails]);
+        isExistingProject && getProjectDetails();
+    }, [isExistingProject]);
     // useEffect(() => {
     //     console.log('AllData', allData);
     // }, [allData]);
 
     const tabItems = [
         { label: "Address", require: false, details: <AddressDetailsTab projectId={projectId} /> },
-        { label: "Site Employee", require: false, details: <SiteEmployeeTab /> },
+        { label: "Site Employee", require: false, details: <SiteEmployeeTab projectId={projectId} /> },
         { label: "Property Types", require: true, details: <PropertyTypesTab /> },
         { label: "Configuration", require: false, details: <ConfigurationTab /> },
         { label: "Project Details", require: false, details: <ProjectDetails /> },
-        { label: "Amenities", require: false, details: <Amenities /> },
-        { label: "Payment Plan", require: false, details: <PaymentPlan /> },
+        { label: "Amenities", require: false, details: <Amenities projectId={projectId} existingProject = {isExistingProject} /> },
+        { label: "Payment Plan", require: false, details: <PaymentPlan projectId={projectId} /> },
         // { label: "Remarks", require: false },
         // { label: "Community Posts", icon: <TeamOutlined />, details: <CommunityPost /> },
     ];
@@ -143,7 +147,7 @@ const AddProject = () => {
             <Box sx={{ width: "100%", backgroundColor: "#fdfdfd", paddingLeft: 3, }} className='h-full flex flex-col gap-2 p-6'>
                 <div className='flex flex-col justify-start'>
                     <p className='text-2xl font-normal'>
-                        {showProjectDetails ? `Check Project Details` : 'New Project'}
+                        {isExistingProject ? `Check Project Details` : 'New Project'}
                     </p>
                 </div>
                 <hr />
@@ -159,7 +163,7 @@ const AddProject = () => {
                     style={{ marginTop: 20 }}
                 // className='flex flex-wrap gap-12 justify-start items-start'
                 >
-                    {showProjectDetails ?
+                    {isExistingProject ?
                         dataFetched && Column?.map((field, index) => {
                             return (
                                 <Form.Item
@@ -174,7 +178,7 @@ const AddProject = () => {
 
                                         </p>
                                     }
-                                    name={field.field}
+                                    name={field.name}
                                     rules={[
                                         { labelAlign: 'right', required: field.required, message: `${field.field} is required`, },
                                     ]}
